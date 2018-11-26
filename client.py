@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-ORACLENAME = "PYRONAME:DS2ASR"
+ORACLENAME = "DS2ASR"
 
 
 class DS2Oracle:
@@ -15,8 +15,11 @@ class DS2Oracle:
     Expects numpy or list-type (not string)
     """
     def __init__(self):
-        self.DS2ASR = Pyro4.Proxy(ORACLENAME)
-        self.DS2ASR._pyroHmacKey = input("HMAC key: ")
+        hk = input("HMAC key: ")
+        self.ns = Pyro4.locateNS(input("Server IP: "), hmac_key=hk, broadcast=False)
+        uri = self.ns.lookup(ORACLENAME)
+        self.DS2ASR = Pyro4.Proxy(uri)
+        self.DS2ASR._pyroHmacKey = hk
 
     def transcribe(self, audio_data, sample_rate=16000):
         try:
@@ -32,6 +35,9 @@ class DS2Oracle:
             if inp == 'q' or inp == 'Q':
                 return ""
             else:
-                self.DS2ASR = Pyro4.Proxy(ORACLENAME)
-                self.DS2ASR._pyroHmacKey = input("HMAC key: ")
+                hk = input("HMAC key: ")
+                self.ns = Pyro4.locateNS(input("Server IP: "), hmac_key=hk, broadcast=False)
+                uri = self.ns.lookup(ORACLENAME)
+                self.DS2ASR = Pyro4.Proxy(uri)
+                self.DS2ASR._pyroHmacKey = hk
                 return self.transcribe(audio_data, sample_rate)
