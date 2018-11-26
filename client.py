@@ -16,6 +16,7 @@ class DS2Oracle:
     """
     def __init__(self):
         self.DS2ASR = Pyro4.Proxy(ORACLENAME)
+        self.DS2ASR._pyroHmacKey = input("HMAC key: ")
 
     def transcribe(self, audio_data, sample_rate=16000):
         try:
@@ -32,4 +33,5 @@ class DS2Oracle:
                 return ""
             else:
                 self.DS2ASR = Pyro4.Proxy(ORACLENAME)
+                self.DS2ASR._pyroHmacKey = input("HMAC key: ")
                 return self.transcribe(audio_data, sample_rate)

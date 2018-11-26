@@ -21,6 +21,7 @@ Prior to using.
 """
 
 parser = argparse.ArgumentParser(description='DeepSpeech transcription')
+parser.add_argument('--hostname', required=True, help='Server hostname/IP to use.')
 parser.add_argument('--model_path', default='models/deepspeech_final.pth.tar',
                     help='Path to model file created by training')
 parser.add_argument('--cuda', action="store_true", help='Use cuda to test model')
@@ -131,13 +132,20 @@ class DeepSpeech2ASR(object):
 
 
 def main():
-    daemon = Pyro4.Daemon.serveSimple(
-        {
-            DeepSpeech2ASR: "DS2ASR"
-        },
-        ns=True
-    )
-
+    hk = input("HMAC key: ")
+    ns = Pyro4.locateNS(hmac_key=hk)
+    daemon = Pyro4.Daemon(host=args.hostname)
+    daemon._pyroHmacKey = hk
+    uri = daemon.register(DeepSpeech2ASR)
+    ns.register("DS2ASR", uri)
+    print("Daemon ready.")
+    # daemon = Pyro4.Daemon.serveSimple(
+    #     {
+    #         DeepSpeech2ASR: "DS2ASR"
+    #     },
+    #     ns=True,
+    #     host="10.136.17.175"
+    # )
     daemon.requestLoop()
 
 
