@@ -42,7 +42,7 @@ if __name__ == '__main__':
         try:
             DS2ASR = Pyro4.Proxy(uri)
             while True:
-                fpath = "/home/wgar/deepspeech2/deepspeech2-query/deepspeech2/data/debug/hello.wav" #input("PATH: ")
+                fpath = "/home/wgar/deepspeech2/deepspeech2_query/deepspeech2/data/debug/hello.wav" #input("PATH: ")
                 x, sr = librosa.load(fpath, sr=16000)
                 print(DS2ASR.get_transcription(x.tolist(), sr=sr))
 

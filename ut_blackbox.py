@@ -2,7 +2,7 @@ import librosa
 
 from client import DS2Oracle
 
-fpath = "/home/wgar/deepspeech2/deepspeech2-query/deepspeech2/data/debug/hello.wav"
+fpath = "/home/wgar/deepspeech2/deepspeech2_query/deepspeech2/data/debug/hello.wav"
 
 ds2o = DS2Oracle()
 while True:
