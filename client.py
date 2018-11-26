@@ -7,10 +7,15 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+ORACLENAME = "PYRONAME:DS2ASR"
+
 
 class DS2Oracle:
+    """
+    Expects numpy or list-type (not string)
+    """
     def __init__(self):
-        self.DS2ASR = Pyro4.Proxy("PYRONAME:DS2ASR")
+        self.DS2ASR = Pyro4.Proxy(ORACLENAME)
 
     def transcribe(self, audio_data, sample_rate=16000):
         try:
@@ -26,28 +31,5 @@ class DS2Oracle:
             if inp == 'q' or inp == 'Q':
                 return ""
             else:
-                self.DS2ASR = Pyro4.Proxy("PYRONAME:DS2ASR")
+                self.DS2ASR = Pyro4.Proxy(ORACLENAME)
                 return self.transcribe(audio_data, sample_rate)
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='DeepSpeech transcription')
-    parser.add_argument('--uri',
-                        help='URI of server', required=True)
-    # /home/wgar/deepspeech2/deepspeech2-query/deepspeech2/data/debug/hello.wav
-
-    args = parser.parse_args()
-    uri = args.uri
-    while True:
-        try:
-            DS2ASR = Pyro4.Proxy(uri)
-            while True:
-                fpath = "/home/wgar/deepspeech2/deepspeech2_query/deepspeech2/data/debug/hello.wav" #input("PATH: ")
-                x, sr = librosa.load(fpath, sr=16000)
-                print(DS2ASR.get_transcription(x.tolist(), sr=sr))
-
-        except Exception as e:
-            print(e)
-            uri = input("The query system crashed. Enter new URI to restart, or Q to quit:\n")
-            if uri == 'q' or uri == 'Q':
-                break
