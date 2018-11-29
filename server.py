@@ -97,38 +97,91 @@ class DeepSpeech2ASR(object):
         return results
 
     def get_transcription(self, audio_data, sr=16000):
-        if type(audio_data) is str:
-            spect = self.parser.parse_audio(np.array(audio_data)).contiguous()
-            spect = spect.view(1, 1, spect.size(0), spect.size(1))
-            out = self.model(Variable(spect, volatile=True))
-            out = out.transpose(0, 1)  # TxNxH
-            decoded_output, decoded_offsets = self.decoder.decode(out.data)
-            res = self.decode_results(decoded_output, decoded_offsets)
-            self.queries += 1
-            transcription = res['output'][0]['transcription']
-            print("Processed query#{}, Result: {}".format(self.queries, transcription))
-            # print(json.dumps(res))
-            return transcription
+        """
+        Assume raw audio data
+        :param audio_data:
+        :param sr:
+        :return:
+        """
+        with tempfile.NamedTemporaryFile() as f:
+            try:
+                librosa.output.write_wav(f.name, np.array(audio_data), sr)
 
-        else:
-            with tempfile.NamedTemporaryFile() as f:
-                try:
-                    librosa.output.write_wav(f.name, np.array(audio_data), sr)
+                spect = self.parser.parse_audio(f.name).contiguous()
+                spect = spect.view(1, 1, spect.size(0), spect.size(1))
+                out = self.model(Variable(spect, volatile=True))
+                out = out.transpose(0, 1)  # TxNxH
+                decoded_output, decoded_offsets = self.decoder.decode(out.data)
+                res = self.decode_results(decoded_output, decoded_offsets)
+                self.queries += 1
+                transcription = res['output'][0]['transcription']
+                print("Processed query#{}, Result: {}".format(self.queries, transcription))
+                # print(json.dumps(res))
+                return transcription
+            except Exception as e:
+                print(e)
+                return ""
 
-                    spect = self.parser.parse_audio(f.name).contiguous()
-                    spect = spect.view(1, 1, spect.size(0), spect.size(1))
-                    out = self.model(Variable(spect, volatile=True))
-                    out = out.transpose(0, 1)  # TxNxH
-                    decoded_output, decoded_offsets = self.decoder.decode(out.data)
-                    res = self.decode_results(decoded_output, decoded_offsets)
-                    self.queries += 1
-                    transcription = res['output'][0]['transcription']
-                    print("Processed query#{}, Result: {}".format(self.queries, transcription))
-                    # print(json.dumps(res))
-                    return transcription
-                except Exception as e:
-                    print(e)
-                    return ""
+    def get_activation_dict(self, audio_data, sr=16000):
+        """
+        Assume raw audio data
+        :param audio_data:
+        :param sr:
+        :return:
+        """
+        with tempfile.NamedTemporaryFile() as f:
+            try:
+                librosa.output.write_wav(f.name, np.array(audio_data), sr)
+
+                spect = self.parser.parse_audio(f.name).contiguous()
+                spect = spect.view(1, 1, spect.size(0), spect.size(1))
+                spect = Variable(spect, volatile=True)
+
+                # conv_out = self.model.conv(spect)
+                conv_outs = []
+                convi_out = spect
+                for c in self.model.conv.children():
+                    convi_out = c.forward(convi_out)
+                    conv_outs.append(convi_out)
+
+                sizes = convi_out.size()
+                rnns_in = convi_out.view(sizes[0], sizes[1] * sizes[2], sizes[3])  # Collapse feature dimension
+                rnns_in = rnns_in.transpose(1, 2).transpose(0, 1).contiguous()  # TxNxH
+                rnn_outs = []
+                rnni_out = rnns_in
+                for c in self.model.rnns.children():
+                    rnni_out = c.forward(rnni_out)
+                    rnn_outs.append(rnni_out)
+
+                # rnns_out = self.model.rnns(rnns_in)
+
+                if not self.model._bidirectional:
+                    rnni_out = self.model.lookahead(rnni_out)
+
+                fc_out = self.model.fc(rnni_out)
+                fc_out = fc_out.transpose(0, 1)
+
+                # identity in training mode, softmax in eval mode
+                x = self.model.inference_softmax(fc_out)
+
+                x = x.transpose(0, 1)  # TxNxH
+
+                layer_to_activation = {}
+
+                for i, c_out in enumerate(conv_outs):
+                    layer_to_activation['conv{}'.format(i)] = conv_outs[i].cpu().tolist()
+
+                for i, r_out in enumerate(rnn_outs):
+                    layer_to_activation['rnn{}'.format(i)] = rnn_outs[i].cpu().tolist()
+
+                layer_to_activation["fc_out"] = fc_out.cpu().tolist()
+                layer_to_activation["sm_out"] = x.cpu().tolist()
+
+                return layer_to_activation
+
+            except Exception as e:
+                print(e)
+                return {}
 
 
 def main():
